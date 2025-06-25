@@ -1,0 +1,118 @@
+# Nom de ton application
+name: parking_car
+
+# Description de l'application
+description: "A new Flutter project."
+
+# Ne pas publier ce package sur pub.dev
+publish_to: 'none'
+
+# Version de ton application
+version: 1.0.0+1
+
+# Environnement SDK compatible
+environment:
+  sdk: ">=3.7.0-0 <4.0.0"
+
+# 📦 Dépendances principales de l'application
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Géolocalisation de l'utilisateur
+  geolocator: ^9.0.2
+  geocoding: ^2.0.5
+
+  # Firebase (initialisation, auth, Firestore, stockage)
+  firebase_core: ^3.13.1
+  cloud_firestore: ^5.6.8
+  firebase_auth: ^5.5.4
+  firebase_storage: ^12.4.6
+
+  # Icônes Cupertino (iOS)
+  cupertino_icons: ^1.0.8
+
+  # Slider d'images
+  carousel_slider: ^5.0.0
+
+  # Splash screen natif
+  flutter_native_splash: ^2.4.6
+
+  # Animations Lottie
+  lottie: ^3.3.1
+
+  # Sauvegarde locale (clé/valeur)
+  shared_preferences: ^2.5.3
+
+  # Connexion Google
+  google_sign_in: ^6.3.0
+
+  # Connexion Facebook
+  flutter_facebook_auth: ^7.1.2
+
+  # Google Maps dans Flutter
+  google_maps_flutter: ^2.12.2
+  image_picker: ^1.1.2
+  lucide_icons: ^0.257.0
+
+  # ➕ (Optionnel) Formulaire plus avancé :
+  # flutter_form_builder: ^9.1.0  # À activer si besoin
+
+# 🧪 Dépendances pour le développement
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# 🔧 Configuration pour les icônes de lancement (logo)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.jpg"
+  background_color: "#ffffff"
+  min_sdk_android: 24
+
+# 💦 Configuration pour l'écran de lancement (splash screen)
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/images/symbole.jpg
+  android: true
+  ios: true
+  web: false
+
+# 🛠️ Paramètres Flutter généraux
+flutter:
+  # Utilisation du design material (nécessaire pour certains widgets)
+  uses-material-design: true
+
+  # 📁 Déclaration des fichiers assets à charger dans l'app
+  assets:
+    # Animations Lottie (json)
+    - assets/lottie/car_parking.json
+    - assets/lottie/map_navigation.json
+    - assets/lottie/app_onboarding.json
+    
+
+    # ✅ Images utilisées dans les animations Lottie (ex : img_0.png)
+    - assets/lottie/images/
+
+    # Images classiques utilisées dans l'app
+    - assets/images/
+    - assets/images/iol.jpg
+    - assets/images/fit.jpg
+    - assets/images/yet.jpg
+    - assets/images/voiture.jpg
+
+  # 👇 Exemple de configuration de polices personnalisées (désactivée pour l'instant)
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
