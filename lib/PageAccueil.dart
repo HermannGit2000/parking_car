@@ -9,7 +9,6 @@ import 'package:parking_car/historique.dart';
 import 'package:parking_car/mes_reservatios.dart';
 import 'package:parking_car/notifications.dart';
 import 'package:parking_car/pages/Liste.dart';
-import 'package:parking_car/pages/reservation_page.dart';
 import 'package:parking_car/parametre.dart';
 import 'package:parking_car/pofil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -22,19 +21,18 @@ class Pageaccueil extends StatefulWidget {
 }
 
 class _PageaccueilState extends State<Pageaccueil> {
-  int pageIndex = 2;
+  int pageIndex = 0;
   String userName = "Hermann Dianga";
   File? userImageFile;
   String defaultImagePath = "assets/images/fit.jpg";
   final ImagePicker _picker = ImagePicker();
 
   final List<Widget> pages = [
+    const Home(),
     const ListeDesParkings(),
     const MesReservationsPage(),
-    const Home(),
-    const NotificationPage(),
-    const ProfilPage(),
-    const HistoriquePage(),
+    const ProfilePage(),
+    const HistoriqueReservationsPage(),
     const ParametresPage(),
     const AidePage(),
   ];
@@ -122,6 +120,15 @@ class _PageaccueilState extends State<Pageaccueil> {
                 ],
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.teal),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationPage()),
+                );
+              },
+            )
           ],
         ),
         leading: Builder(
@@ -162,11 +169,10 @@ class _PageaccueilState extends State<Pageaccueil> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          navBarItem(LucideIcons.parkingSquare, 'Parking', 0, activeColor, inactiveColor),
-          navBarItem(LucideIcons.car, 'Véhicules', 1, activeColor, inactiveColor),
-          navBarItem(LucideIcons.home, 'Accueil', 2, activeColor, inactiveColor),
-          navBarItem(LucideIcons.bell, 'Notifications', 3, activeColor, inactiveColor),
-          navBarItem(LucideIcons.userCircle2, 'Profil', 4, activeColor, inactiveColor),
+          navBarItem(Icons.home_outlined, 'Accueil', 0, activeColor, inactiveColor),
+          navBarItem(Icons.local_parking_outlined, 'Parkings', 1, activeColor, inactiveColor),
+          navBarItem(Icons.directions_car_outlined, 'Réservations', 2, activeColor, inactiveColor),
+          navBarItem(Icons.person_outline, 'Profil', 3, activeColor, inactiveColor),
         ],
       ),
     );
@@ -261,7 +267,7 @@ class _PageaccueilState extends State<Pageaccueil> {
             leading: Icon(Icons.event_available_outlined, color: primaryColor),
             title: Text("Réserver un parking"),
             onTap: () {
-              setState(() => pageIndex = 0);
+              setState(() => pageIndex = 1);
               Navigator.pop(context);
             },
           ),
@@ -269,7 +275,7 @@ class _PageaccueilState extends State<Pageaccueil> {
             leading: Icon(Icons.history, color: primaryColor),
             title: Text("Historique"),
             onTap: () {
-              setState(() => pageIndex = 5);
+              setState(() => pageIndex = 4);
               Navigator.pop(context);
             },
           ),
@@ -280,7 +286,7 @@ class _PageaccueilState extends State<Pageaccueil> {
               Navigator.pop(context);
               final admin = await estAdmin();
               if (admin) {
-                setState(() => pageIndex = 0);
+                setState(() => pageIndex = 1);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text("Accès réservé aux administrateurs.")),
@@ -292,7 +298,7 @@ class _PageaccueilState extends State<Pageaccueil> {
             leading: Icon(Icons.settings_outlined, color: primaryColor),
             title: Text("Paramètres"),
             onTap: () {
-              setState(() => pageIndex = 6);
+              setState(() => pageIndex = 5);
               Navigator.pop(context);
             },
           ),
@@ -300,7 +306,7 @@ class _PageaccueilState extends State<Pageaccueil> {
             leading: Icon(Icons.help_outline, color: primaryColor),
             title: Text("Aide"),
             onTap: () {
-              setState(() => pageIndex = 7);
+              setState(() => pageIndex = 6);
               Navigator.pop(context);
             },
           ),

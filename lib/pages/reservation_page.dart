@@ -1,104 +1,144 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
-class ReservationPage extends StatelessWidget {
+class ReservationPage extends StatefulWidget {
   final String docId;
   final Map<String, dynamic> data;
 
   const ReservationPage({required this.docId, required this.data, Key? key}) : super(key: key);
 
-  Future<void> reserver(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  @override
+  State<ReservationPage> createState() => _ReservationPageState();
+}
 
-    if (data['places_disponibles'] > 0) {
-      try {
-        await FirebaseFirestore.instance.collection('parkings').doc(docId).update({
-          'places_disponibles': FieldValue.increment(-1),
-          'disponible': data['places_disponibles'] - 1 > 0,
-        });
+class _ReservationPageState extends State<ReservationPage> {
+  File? _selectedImage;
+  bool _isLoading = false;
 
-        await FirebaseFirestore.instance
-            .collection('reservations')
-            .add({'userId': user.uid, 'parkingId': docId, 'date': DateTime.now()});
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Réservation effectuée !")),
-        );
-
-        Navigator.pop(context);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur : $e")));
-      }
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() {
+        _selectedImage = File(picked.path);
+      });
     }
   }
 
-  Future<void> annulerReservation(BuildContext context) async {
+  Future<String?> _uploadImageToStorage(String reservationId) async {
+    if (_selectedImage == null) return null;
+
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('reservation_images/$reservationId.jpg');
+
+    await storageRef.putFile(_selectedImage!);
+    return await storageRef.getDownloadURL();
+  }
+
+  Future<void> _reserver() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final resSnapshot = await FirebaseFirestore.instance
-        .collection('reservations')
-        .where('userId', isEqualTo: user.uid)
-        .where('parkingId', isEqualTo: docId)
-        .limit(1)
-        .get();
+    setState(() => _isLoading = true);
 
-    if (resSnapshot.docs.isNotEmpty) {
-      await FirebaseFirestore.instance.collection('reservations').doc(resSnapshot.docs.first.id).delete();
+    try {
+      final now = DateTime.now();
+      final reservationRef = FirebaseFirestore.instance.collection('reservations').doc();
 
-      await FirebaseFirestore.instance.collection('parkings').doc(docId).update({
-        'places_disponibles': FieldValue.increment(1),
-        'disponible': true,
+      final imageUrl = await _uploadImageToStorage(reservationRef.id);
+
+      await reservationRef.set({
+        'userId': user.uid,
+        'parkingId': widget.docId,
+        'parkingNom': widget.data['nom'] ?? 'Parking',
+        'date': Timestamp.fromDate(now),
+        'imageUrl': imageUrl ?? '',
       });
 
+      // Met à jour le nombre de places disponibles
+      final parkingRef = FirebaseFirestore.instance.collection('parkings').doc(widget.docId);
+      final parkingSnapshot = await parkingRef.get();
+      final placesDispo = parkingSnapshot.data()?['places_disponibles'] ?? 0;
+
+      if (placesDispo > 0) {
+        await parkingRef.update({
+          'places_disponibles': FieldValue.increment(-1),
+          'disponible': placesDispo - 1 > 0,
+        });
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Réservation annulée.")),
+        const SnackBar(content: Text("Réservation enregistrée")),
       );
-    } else {
+
+      Navigator.pop(context);
+    } catch (e) {
+      debugPrint("Erreur réservation : $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Aucune réservation à annuler.")),
+        SnackBar(content: Text("Erreur : $e")),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final int places = data['places_disponibles'] ?? 0;
+    final nomParking = widget.data['nom'] ?? 'Parking';
 
     return Scaffold(
-      appBar: AppBar(title: Text("Réserver: ${data['nom']}"), backgroundColor: Colors.white),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.local_parking, size: 60, color: Colors.teal),
-              const SizedBox(height: 20),
-              Text("Places disponibles: $places",
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: places > 0 ? () => reserver(context) : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                ),
-                child: const Text("Réserver une place"),
+      appBar: AppBar(
+        title: const Text('Réserver une place'),
+        backgroundColor: Colors.blue,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nomParking,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.image),
+                    label: const Text("Choisir une image"),
+                  ),
+                  if (_selectedImage != null) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _selectedImage!,
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 30),
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: _reserver,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                      ),
+                      child: const Text("Réserver", style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => annulerReservation(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
-                child: const Text("Annuler ma réservation"),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

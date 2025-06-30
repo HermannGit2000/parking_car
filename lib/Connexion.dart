@@ -21,6 +21,26 @@ class _ConnexionState extends State<Connexion> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _checkRedirectResult();
+  }
+
+  Future<void> _checkRedirectResult() async {
+    try {
+      final userCredential = await FirebaseAuth.instance.getRedirectResult();
+      if (userCredential.user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Pageaccueil()),
+        );
+      }
+    } catch (e) {
+      print("Erreur de redirection : $e");
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -71,7 +91,7 @@ class _ConnexionState extends State<Connexion> {
     try {
       if (kIsWeb) {
         GoogleAuthProvider googleProvider = GoogleAuthProvider();
-        await FirebaseAuth.instance.signInWithPopup(googleProvider);
+        await FirebaseAuth.instance.signInWithRedirect(googleProvider);
       } else {
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
         if (googleUser == null) return;
@@ -84,44 +104,48 @@ class _ConnexionState extends State<Connexion> {
         );
 
         await FirebaseAuth.instance.signInWithCredential(credential);
-      }
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const Pageaccueil()),
-      );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Pageaccueil()),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur Google : $e')),
       );
     }
   }
+Future<void> _signInWithFacebook() async {
+  try {
+    if (kIsWeb) {
+      // Pour le Web, on utilise directement le provider
+      FacebookAuthProvider facebookProvider = FacebookAuthProvider();
+      await FirebaseAuth.instance.signInWithRedirect(facebookProvider);
+    } else {
+      final LoginResult result = await FacebookAuth.instance.login();
 
-  Future<void> _signInWithFacebook() async {
-    try {
-      if (kIsWeb) {
-        FacebookAuthProvider facebookProvider = FacebookAuthProvider();
-        await FirebaseAuth.instance.signInWithPopup(facebookProvider);
+      if (result.status == LoginStatus.success && result.accessToken != null) {
+        final accessToken = result.accessToken!;
+        final OAuthCredential credential = FacebookAuthProvider.credential(accessToken.token);
+
+        await FirebaseAuth.instance.signInWithCredential(credential);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const Pageaccueil()),
+        );
       } else {
-        final LoginResult result = await FacebookAuth.instance.login();
-        if (result.status == LoginStatus.success) {
- final OAuthCredential credential = FacebookAuthProvider.credential(result.accessToken!.token!);
-          await FirebaseAuth.instance.signInWithCredential(credential);
-        } else {
-          throw Exception("Connexion Facebook annulée ou échouée : ${result.message}");
-        }
+        throw Exception("Connexion Facebook annulée ou échouée : ${result.message ?? 'Aucune raison fournie'}");
       }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const Pageaccueil()),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur Facebook : $e')),
-      );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur Facebook : $e')),
+    );
   }
+}
+
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
@@ -225,77 +249,73 @@ class _ConnexionState extends State<Connexion> {
                         ),
                       ),
                       const SizedBox(height: 30),
-                     Row(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    // 🔵 Bouton Google
-    GestureDetector(
-      onTap: _signInWithGoogle,
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle, // ✅ Forme ronde
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
-                ),
-              ],
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Image.asset('assets/images/google.jpg'),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Google',
-            style: TextStyle(fontSize: 14, color: Colors.black),
-          ),
-        ],
-      ),
-    ),
-
-    // 🟦 Bouton Facebook
-    GestureDetector(
-      onTap: _signInWithFacebook,
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle, // ✅ Forme ronde
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 6,
-                  offset: Offset(0, 3),
-                ),
-              ],
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Image.asset('assets/images/facebook.jpg'),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Facebook',
-            style: TextStyle(fontSize: 14, color: Colors.black),
-          ),
-        ],
-      ),
-    ),
-  ],
-),
-
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: _signInWithGoogle,
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Image.asset('assets/images/google.jpg'),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Google',
+                                  style: TextStyle(fontSize: 14, color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _signInWithFacebook,
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Image.asset('assets/images/facebook.jpg'),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Facebook',
+                                  style: TextStyle(fontSize: 14, color: Colors.black),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 30),
                       InkWell(
                         onTap: () {
@@ -339,5 +359,5 @@ class _ConnexionState extends State<Connexion> {
 }
 
 extension on AccessToken {
-  String? get token => null;
+  String get token => this.token;
 }
