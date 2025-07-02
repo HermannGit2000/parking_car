@@ -13,6 +13,14 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  void _setAdresseSimulee() {
+    const adresseSimulee = 'Centre-ville, Libreville, Estuaire, Gabon';
+    setState(() {
+      _searchLocation = adresseSimulee;
+      _locationController.text = adresseSimulee;
+    });
+  }
+
   final List<Widget> carouselItems = [
     carouselCard("assets/images/images.jpg", "Gabon: Vers une croissance des parkings"),
     carouselCard("assets/images/kil.jpg", "Les differents parkings"),
@@ -23,73 +31,118 @@ class _HomeState extends State<Home> {
 
   String _searchType = '';
   String _searchMatricul = '';
+
   String _searchLocation = '';
-  String _searchHour = '';
   String _selectedParkingName = '';
+
+  TimeOfDay? _heureDebut;
+  TimeOfDay? _heureFin;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _matriculeController = TextEditingController();
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez activer la localisation')),
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission refusée')),
+          const SnackBar(content: Text('La localisation est désactivée. Une adresse simulée sera utilisée.')),
         );
+        _setAdresseSimulee();
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission refusée définitivement')),
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission refusée. Une adresse simulée sera utilisée.')),
+          );
+          _setAdresseSimulee();
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission refusée définitivement. Une adresse simulée sera utilisée.')),
+        );
+        _setAdresseSimulee();
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
-      return;
-    }
 
-    try {
-      final Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
-        final quartier = place.subLocality;
-        final ville = place.locality;
-        final region = place.administrativeArea;
 
-        final readableAddress = [
-          if (quartier != null && quartier.isNotEmpty) quartier,
-          if (ville != null && ville.isNotEmpty) ville,
-          if (region != null && region.isNotEmpty) region,
+        final quartier = place.subLocality ?? '';
+        final ville = place.locality ?? '';
+        final region = place.administrativeArea ?? '';
+        final pays = place.country ?? '';
+
+        final adresse = [
+          if (quartier.isNotEmpty) quartier,
+          if (ville.isNotEmpty) ville,
+          if (region.isNotEmpty) region,
+          if (pays.isNotEmpty) pays,
         ].join(', ');
 
         setState(() {
-          _searchLocation = readableAddress;
-          _locationController.text = readableAddress;
+          _searchLocation = adresse;
+          _locationController.text = adresse;
         });
+      } else {
+        _setAdresseSimulee();
       }
     } catch (e) {
+      debugPrint('Erreur géolocalisation : $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de la localisation. Une adresse simulée sera utilisée.')),
+      );
+      _setAdresseSimulee();
+    }
+  }
+
+  Future<void> _selectHeureDebut(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
       setState(() {
-        _searchLocation = "Localisation non trouvée";
-        _locationController.text = _searchLocation;
+        _heureDebut = picked;
+      });
+    }
+  }
+
+  Future<void> _selectHeureFin(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _heureFin = picked;
       });
     }
   }
 
   void _validerReservation() async {
     if (_searchType.isEmpty ||
-        _searchMatricul.isEmpty ||
+        _matriculeController.text.isEmpty ||
         _searchLocation.isEmpty ||
-        _searchHour.isEmpty ||
+        _heureDebut == null ||
+        _heureFin == null ||
         _amountController.text.isEmpty ||
         _selectedParkingName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,16 +178,40 @@ class _HomeState extends State<Home> {
     await FirebaseFirestore.instance.collection('reservations').add({
       'userId': user.uid,
       'type': _searchType,
-      'matricule': _searchMatricul,
+      'matricule': _matriculeController.text,
       'localisation': _searchLocation,
       'nomParking': _selectedParkingName,
-      'heure': _searchHour,
+      'heure_debut': _heureDebut!.format(context),
+      'heure_fin': _heureFin!.format(context),
       'montant': montant,
       'date': Timestamp.now(),
     });
 
     Navigator.of(context).pop();
     Navigator.pushNamed(context, '/mes_reservations');
+  }
+
+  void _resetForm() {
+    setState(() {
+      _searchType = '';
+      _searchMatricul = '';
+      _searchLocation = '';
+      _selectedParkingName = '';
+      _heureDebut = null;
+      _heureFin = null;
+      _amountController.clear();
+      _locationController.clear();
+      _matriculeController.clear();
+    });
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      filled: true,
+      fillColor: Colors.white,
+    );
   }
 
   @override
@@ -159,12 +236,7 @@ class _HomeState extends State<Home> {
                   _selectedParkingName = value!;
                 });
               },
-              decoration: InputDecoration(
-                labelText: 'Nom du parking',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
+              decoration: _inputDecoration('Nom du parking'),
             ),
             const SizedBox(height: 12),
             Row(
@@ -189,48 +261,42 @@ class _HomeState extends State<Home> {
                         }
                       });
                     },
-                    decoration: InputDecoration(
-                      labelText: 'Type',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
+                    decoration: _inputDecoration('Type'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _searchMatricul.isNotEmpty ? _searchMatricul : null,
-                    items: ['BZ 826 AA', 'GR 467 AA', 'CV 756 AA', 'JR 574 AA', 'BA 609', 'GY 826 AA', 'GN 567 AA']
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                        .toList(),
+                  child: TextField(
+                    controller: _matriculeController,
+                    decoration: _inputDecoration('Matricule'),
                     onChanged: (value) {
-                      setState(() {
-                        _searchMatricul = value!;
-                      });
+                      _searchMatricul = value;
                     },
-                    decoration: InputDecoration(
-                      labelText: 'Matricule',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
+
+            // Image simulation map au-dessus localisation
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/images/libreville.jpg',
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _locationController,
-                    decoration: InputDecoration(
-                      hintText: 'Localisation',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
+                    decoration: _inputDecoration('Localisation'),
                     onChanged: (value) {
                       _searchLocation = value;
                     },
@@ -243,22 +309,36 @@ class _HomeState extends State<Home> {
               ],
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _searchHour.isNotEmpty ? _searchHour : null,
-              items: ['08:00', '09:00', '10:00', '11:00']
-                  .map((h) => DropdownMenuItem(value: h, child: Text(h)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _searchHour = value!;
-                });
-              },
-              decoration: InputDecoration(
-                labelText: 'Heure',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                filled: true,
-                fillColor: Colors.white,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _selectHeureDebut(context),
+                    child: AbsorbPointer(
+                      child: TextField(
+                        decoration: _inputDecoration("Heure de début"),
+                        controller: TextEditingController(
+                          text: _heureDebut != null ? _heureDebut!.format(context) : '',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _selectHeureFin(context),
+                    child: AbsorbPointer(
+                      child: TextField(
+                        decoration: _inputDecoration("Heure de fin"),
+                        controller: TextEditingController(
+                          text: _heureFin != null ? _heureFin!.format(context) : '',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             TextField(
@@ -275,14 +355,35 @@ class _HomeState extends State<Home> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _validerReservation,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text("Valider", style: TextStyle(fontSize: 14)),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _validerReservation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.check),
+                    label: const Text("Valider", style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _resetForm,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: const BorderSide(color: Colors.teal),
+                    ),
+                    icon: const Icon(Icons.refresh, color: Colors.teal),
+                    label: const Text("Réinitialiser", style: TextStyle(fontSize: 16, color: Colors.teal)),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 36),

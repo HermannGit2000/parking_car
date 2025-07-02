@@ -106,6 +106,7 @@ flutter:
     - assets/images/fit.jpg
     - assets/images/yet.jpg
     - assets/images/voiture.jpg
+    - assets/images/libreville.jpg
 
   # 👇 Exemple de configuration de polices personnalisées (désactivée pour l'instant)
   # fonts:

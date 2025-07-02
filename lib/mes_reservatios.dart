@@ -132,7 +132,13 @@ class _MesReservationsPageState extends State<MesReservationsPage> {
                   final data = doc.data() as Map<String, dynamic>;
 
                   final parkingName = data['nomParking'] ?? 'N/A';
-                  final heure = data['heure'] ?? 'N/A';
+                  // Je suppose que tu voulais afficher heure début - heure fin, je corrige pour afficher ces champs :
+                  final heureDebut = data['heure_debut'] ?? '';
+                  final heureFin = data['heure_fin'] ?? '';
+                  final heures = heureDebut.isNotEmpty && heureFin.isNotEmpty
+                      ? '$heureDebut - $heureFin'
+                      : 'Heure inconnue';
+
                   final type = data['type'] ?? 'N/A';
                   final montant = data['montant']?.toString() ?? 'N/A';
                   final dateTimestamp = data['date'] as Timestamp?;
@@ -185,7 +191,7 @@ class _MesReservationsPageState extends State<MesReservationsPage> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Heure: $heure',
+                                        'Heure: $heures',
                                         style: TextStyle(fontSize: fontSizeContent),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
